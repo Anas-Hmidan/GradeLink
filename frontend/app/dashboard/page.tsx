@@ -12,13 +12,15 @@ import { Plus } from "lucide-react"
 
 interface Test {
   id: string
+  test_code: string
   title: string
-  description: string
+  description?: string
   subject: string
   difficulty: string
   total_questions: number
-  duration_minutes: number
+  duration_minutes?: number
   created_at: string
+  submissions: number
 }
 
 export default function DashboardPage() {
@@ -39,16 +41,12 @@ export default function DashboardPage() {
 
   const fetchTests = async () => {
     try {
-      const response = await axios.get("/api/tests")
-      // Backend might return tests in different formats
-      const testsData = response.data.data?.tests || response.data.tests || response.data.data || []
+      const response = await axios.get("/api/test/teacher")
+      const testsData = response.data.data?.tests || []
       setTests(testsData)
     } catch (err: any) {
       console.error("Failed to fetch tests:", err)
-      // Don't show error if endpoint doesn't exist yet
-      if (err.response?.status !== 404) {
-        setError("Failed to load tests")
-      }
+      setError(err.response?.data?.error?.message || "Failed to load tests")
     } finally {
       setLoading(false)
     }

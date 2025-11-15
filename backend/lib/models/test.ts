@@ -19,6 +19,7 @@ export interface Test {
   total_questions: number
   questions: Question[]
   course_file_name?: string
+  test_code: string // Unique 8-character code for students to access test
   created_at: Date
   updated_at: Date
 }
@@ -31,7 +32,7 @@ export const testSchema = {
   validator: {
     $jsonSchema: {
       bsonType: "object",
-      required: ["teacher_id", "title", "subject", "total_questions", "questions", "created_at"],
+      required: ["teacher_id", "title", "subject", "total_questions", "questions", "test_code", "created_at"],
       properties: {
         _id: { bsonType: "objectId" },
         teacher_id: { bsonType: "objectId" },
@@ -42,6 +43,7 @@ export const testSchema = {
         duration_minutes: { bsonType: "int" },
         total_questions: { bsonType: "int" },
         questions: { bsonType: "array" },
+        test_code: { bsonType: "string" },
         created_at: { bsonType: "date" },
         updated_at: { bsonType: "date" },
       },

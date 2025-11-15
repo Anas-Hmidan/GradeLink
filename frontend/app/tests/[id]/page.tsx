@@ -21,6 +21,7 @@ interface Question {
 
 interface TestDetails {
   id: string
+  test_code: string
   title: string
   description?: string
   subject: string
@@ -55,21 +56,21 @@ export default function TestDetailsPage() {
   const fetchTestDetails = async () => {
     try {
       const response = await axios.get(`/api/test/${testId}`)
-      setTest(response.data.test)
+      setTest(response.data.data || response.data.test)
     } catch (err: any) {
       console.error("Failed to fetch test details:", err)
-      setError(err.response?.data?.message || "Failed to load test details")
+      setError(err.response?.data?.error?.message || "Failed to load test details")
     } finally {
       setLoading(false)
     }
   }
 
-  const copyTestId = () => {
-    if (testId) {
-      navigator.clipboard.writeText(testId)
+  const copyTestCode = () => {
+    if (test?.test_code) {
+      navigator.clipboard.writeText(test.test_code)
       toast({
-        title: "Test ID Copied!",
-        description: "Share this ID with students to take the test",
+        title: "Test Code Copied!",
+        description: "Share this code with students to take the test",
       })
     }
   }
@@ -145,9 +146,9 @@ export default function TestDetailsPage() {
                 </Badge>
               </div>
             </div>
-            <Button onClick={copyTestId} size="lg" className="shrink-0">
+            <Button onClick={copyTestCode} size="lg" className="shrink-0">
               <Copy className="w-4 h-4 mr-2" />
-              Copy Test ID
+              Copy Test Code
             </Button>
           </div>
         </div>
@@ -161,7 +162,7 @@ export default function TestDetailsPage() {
             <div>
               <h3 className="font-semibold text-foreground mb-1">Teacher View - Complete Answer Key</h3>
               <p className="text-sm text-muted-foreground">
-                This page shows all questions with their correct answers. Share the Test ID ({testId}) with students to let them take the test using their desktop app.
+                This page shows all questions with their correct answers. Share the Test Code ({test.test_code}) with students to let them take the test using their desktop app.
               </p>
             </div>
           </div>
@@ -218,18 +219,18 @@ export default function TestDetailsPage() {
         </div>
 
         <div className="mt-8 p-6 bg-card border border-border rounded-lg text-center">
-          <h3 className="text-lg font-semibold text-foreground mb-2">Test ID for Students</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-2">Test Code for Students</h3>
           <div className="flex items-center justify-center gap-3">
             <code className="px-4 py-2 bg-muted rounded text-lg font-mono text-foreground">
-              {testId}
+              {test.test_code}
             </code>
-            <Button onClick={copyTestId} variant="outline" size="sm">
+            <Button onClick={copyTestCode} variant="outline" size="sm">
               <Copy className="w-4 h-4 mr-2" />
               Copy
             </Button>
           </div>
           <p className="text-sm text-muted-foreground mt-2">
-            Students will enter this ID in their desktop application
+            Students will enter this code in their desktop application
           </p>
         </div>
       </main>

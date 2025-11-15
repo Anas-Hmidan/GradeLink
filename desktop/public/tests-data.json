@@ -1,0 +1,185 @@
+{
+  "tests": [
+    {
+      "id": "test-001",
+      "title": "General Knowledge - Level 1",
+      "description": "Basic general knowledge quiz covering history, geography, and science",
+      "duration": 5,
+      "questionCount": 10,
+      "questions": [
+        {
+          "id": "q1",
+          "question": "What is the capital of France?",
+          "options": ["London", "Paris", "Berlin", "Madrid"],
+          "correctAnswer": 1
+        },
+        {
+          "id": "q2",
+          "question": "Which planet is known as the Red Planet?",
+          "options": ["Venus", "Mars", "Jupiter", "Saturn"],
+          "correctAnswer": 1
+        },
+        {
+          "id": "q3",
+          "question": "What is the largest ocean on Earth?",
+          "options": ["Atlantic Ocean", "Indian Ocean", "Arctic Ocean", "Pacific Ocean"],
+          "correctAnswer": 3
+        },
+        {
+          "id": "q4",
+          "question": "Who painted the Mona Lisa?",
+          "options": ["Vincent van Gogh", "Leonardo da Vinci", "Pablo Picasso", "Michelangelo"],
+          "correctAnswer": 1
+        },
+        {
+          "id": "q5",
+          "question": "What is the chemical symbol for Gold?",
+          "options": ["Go", "Gd", "Au", "Ag"],
+          "correctAnswer": 2
+        },
+        {
+          "id": "q6",
+          "question": "In what year did World War II end?",
+          "options": ["1943", "1944", "1945", "1946"],
+          "correctAnswer": 2
+        },
+        {
+          "id": "q7",
+          "question": "What is the smallest prime number?",
+          "options": ["0", "1", "2", "3"],
+          "correctAnswer": 2
+        },
+        {
+          "id": "q8",
+          "question": "Which country has the most population?",
+          "options": ["India", "China", "United States", "Indonesia"],
+          "correctAnswer": 1
+        },
+        {
+          "id": "q9",
+          "question": "What is the speed of light?",
+          "options": ["300,000 km/s", "150,000 km/s", "450,000 km/s", "600,000 km/s"],
+          "correctAnswer": 0
+        },
+        {
+          "id": "q10",
+          "question": "How many bones does an adult human have?",
+          "options": ["186", "206", "226", "246"],
+          "correctAnswer": 1
+        }
+      ]
+    },
+    {
+      "id": "test-002",
+      "title": "Programming Fundamentals",
+      "description": "Test your knowledge of basic programming concepts and JavaScript",
+      "duration": 8,
+      "questionCount": 8,
+      "questions": [
+        {
+          "id": "q1",
+          "question": "What is a variable?",
+          "options": ["A function name", "A named storage location for data", "A type of loop", "A data type"],
+          "correctAnswer": 1
+        },
+        {
+          "id": "q2",
+          "question": "Which of these is NOT a primitive data type in JavaScript?",
+          "options": ["String", "Number", "Boolean", "Array"],
+          "correctAnswer": 3
+        },
+        {
+          "id": "q3",
+          "question": "What does DOM stand for?",
+          "options": ["Data Object Model", "Document Object Model", "Dynamic Object Method", "Display Object Mode"],
+          "correctAnswer": 1
+        },
+        {
+          "id": "q4",
+          "question": "In JavaScript, what will console.log(typeof undefined) output?",
+          "options": ["'undefined'", "'null'", "undefined", "an error"],
+          "correctAnswer": 0
+        },
+        {
+          "id": "q5",
+          "question": "What is the purpose of a function?",
+          "options": [
+            "To store data",
+            "To reuse code and perform specific tasks",
+            "To create variables",
+            "To define loops"
+          ],
+          "correctAnswer": 1
+        },
+        {
+          "id": "q6",
+          "question": "Which keyword creates a constant in JavaScript?",
+          "options": ["let", "var", "const", "constant"],
+          "correctAnswer": 2
+        },
+        {
+          "id": "q7",
+          "question": "What does API stand for?",
+          "options": [
+            "Application Program Interface",
+            "Application Process Integration",
+            "Advanced Programming Interface",
+            "Application Processing Instruction"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "id": "q8",
+          "question": "What is the main purpose of a database?",
+          "options": ["To compile code", "To store and retrieve data", "To create web pages", "To execute programs"],
+          "correctAnswer": 1
+        }
+      ]
+    },
+    {
+      "id": "test-003",
+      "title": "Math & Logic",
+      "description": "Challenge yourself with mathematics and logical reasoning questions",
+      "duration": 10,
+      "questionCount": 6,
+      "questions": [
+        {
+          "id": "q1",
+          "question": "What is 25% of 80?",
+          "options": ["15", "20", "25", "30"],
+          "correctAnswer": 1
+        },
+        {
+          "id": "q2",
+          "question": "If x + 5 = 12, what is x?",
+          "options": ["5", "6", "7", "8"],
+          "correctAnswer": 2
+        },
+        {
+          "id": "q3",
+          "question": "What is the square root of 144?",
+          "options": ["10", "11", "12", "13"],
+          "correctAnswer": 2
+        },
+        {
+          "id": "q4",
+          "question": "In a sequence 2, 4, 8, 16, what comes next?",
+          "options": ["20", "24", "30", "32"],
+          "correctAnswer": 3
+        },
+        {
+          "id": "q5",
+          "question": "What is the probability of rolling a 6 on a fair dice?",
+          "options": ["1/2", "1/3", "1/4", "1/6"],
+          "correctAnswer": 3
+        },
+        {
+          "id": "q6",
+          "question": "If 2x = 10, what is x?",
+          "options": ["3", "4", "5", "6"],
+          "correctAnswer": 2
+        }
+      ]
+    }
+  ]
+}

@@ -7,6 +7,16 @@ import { rateLimit } from "@/lib/middleware/rateLimit"
 import { processDocument, validateFileSize, validateFileType } from "@/lib/utils/fileProcessor"
 import { ObjectId } from "mongodb"
 
+// Generate unique 8-character alphanumeric code
+function generateTestCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // Removed ambiguous characters (0, O, I, 1)
+  let code = ""
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return code
+}
+
 async function generateQuestionsWithGemini(
   courseContent: string,
   subject: string,
@@ -216,6 +226,28 @@ export async function POST(request: NextRequest) {
 
     const { db } = await connectToDatabase()
 
+    // Generate unique test code
+    let testCode: string
+    let isUnique = false
+    let attempts = 0
+    const maxAttempts = 10
+
+    while (!isUnique && attempts < maxAttempts) {
+      testCode = generateTestCode()
+      const existing = await db.collection("tests").findOne({ test_code: testCode })
+      if (!existing) {
+        isUnique = true
+      }
+      attempts++
+    }
+
+    if (!isUnique) {
+      return NextResponse.json(
+        errorResponse("CODE_GENERATION_FAILED", "Failed to generate unique test code. Please try again."),
+        { status: 500 },
+      )
+    }
+
     let questions
     try {
       questions = await generateQuestionsWithGemini(
@@ -263,6 +295,7 @@ export async function POST(request: NextRequest) {
       total_questions,
       questions: formattedQuestions,
       course_file_name: file.name,
+      test_code: testCode!,
       created_at: new Date(),
       updated_at: new Date(),
     })
@@ -270,6 +303,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       successResponse({
         id: result.insertedId.toString(),
+        test_code: testCode!,
         title,
         subject,
         total_questions,

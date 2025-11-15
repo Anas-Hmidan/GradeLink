@@ -12,17 +12,19 @@ import ResultsTable from "@/components/results-table"
 import AnalyticsOverview from "@/components/analytics-overview"
 
 interface StudentResult {
-  id: string
-  studentName: string
-  studentEmail: string
-  testTitle: string
-  testId: string
+  result_id: string
+  student_id: string
+  student_email: string
+  student_name: string
+  testTitle?: string
+  testId?: string
   score: number
-  totalQuestions: number
-  timeSpent: number
-  completedAt: string
-  cheatingDetected: boolean
-  cheatingFlags?: string[]
+  total_questions: number
+  percentage: number
+  time_taken_seconds: number
+  submitted_at: string
+  flagged_for_cheating: boolean
+  cheating_reasons: string[]
 }
 
 interface AnalyticsData {
@@ -55,16 +57,64 @@ export default function ResultsPage() {
   const fetchResults = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem("auth_token")
-      const params = selectedTest !== "all" ? `?testId=${selectedTest}` : ""
-      const response = await axios.get(`/api/results${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-
-      setResults(response.data.results)
-      setAnalytics(response.data.analytics)
-    } catch {
-      setError("Failed to fetch results")
+      // If a specific test is selected, fetch its results
+      if (selectedTest !== "all") {
+        const response = await axios.get(`/api/test/${selectedTest}/results`)
+        const resultsData = response.data.data?.results || []
+        setResults(resultsData)
+        // Calculate analytics from results
+        if (resultsData.length > 0) {
+          const scores = resultsData.map((r: any) => r.percentage)
+          const cheatingCount = resultsData.filter((r: any) => r.flagged_for_cheating).length
+          setAnalytics({
+            totalSubmissions: resultsData.length,
+            averageScore: scores.reduce((a: number, b: number) => a + b, 0) / scores.length,
+            highestScore: Math.max(...scores),
+            lowestScore: Math.min(...scores),
+            cheatingCases: cheatingCount,
+          })
+        }
+      } else {
+        // For "all" view, we need to fetch all tests first
+        const testsResponse = await axios.get("/api/test/teacher")
+        const tests = testsResponse.data.data?.tests || []
+        
+        // Fetch results for each test
+        const allResults: StudentResult[] = []
+        for (const test of tests) {
+          try {
+            const response = await axios.get(`/api/test/${test.id}/results`)
+            const testResults = response.data.data?.results || []
+            // Add test info to each result
+            testResults.forEach((r: any) => {
+              allResults.push({
+                ...r,
+                testTitle: test.title,
+                testId: test.id,
+              })
+            })
+          } catch (err) {
+            console.error(`Failed to fetch results for test ${test.id}`, err)
+          }
+        }
+        
+        setResults(allResults)
+        // Calculate overall analytics
+        if (allResults.length > 0) {
+          const scores = allResults.map(r => r.percentage)
+          const cheatingCount = allResults.filter(r => r.flagged_for_cheating).length
+          setAnalytics({
+            totalSubmissions: allResults.length,
+            averageScore: scores.reduce((a, b) => a + b, 0) / scores.length,
+            highestScore: Math.max(...scores),
+            lowestScore: Math.min(...scores),
+            cheatingCases: cheatingCount,
+          })
+        }
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch results:", err)
+      setError(err.response?.data?.error?.message || "Failed to fetch results")
     } finally {
       setLoading(false)
     }
@@ -84,14 +134,14 @@ export default function ResultsPage() {
       ]
 
       const rows = results.map((result) => [
-        result.studentName,
-        result.studentEmail,
-        result.testTitle,
-        `${result.score}/${result.totalQuestions}`,
-        `${((result.score / result.totalQuestions) * 100).toFixed(1)}%`,
-        Math.round(result.timeSpent / 60),
-        new Date(result.completedAt).toLocaleString(),
-        result.cheatingDetected ? "Yes" : "No",
+        result.student_name,
+        result.student_email,
+        result.testTitle || "N/A",
+        `${result.score}/${result.total_questions}`,
+        `${result.percentage.toFixed(1)}%`,
+        Math.round(result.time_taken_seconds / 60),
+        new Date(result.submitted_at).toLocaleString(),
+        result.flagged_for_cheating ? "Yes" : "No",
       ])
 
       const csv = [headers, ...rows].map((row) => row.join(",")).join("\n")

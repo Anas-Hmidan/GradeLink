@@ -394,6 +394,72 @@ Save this as `backend-tests.postman_collection.json` and import into Postman:
           "mode": "raw",
           "raw": "{\n  \"email\": \"teacher@test.com\",\n  \"password\": \"Teacher123\",\n  \"full_name\": \"Test Teacher\",\n  \"role\": \"teacher\"\n}"
         },
+
+          ## Teacher: Fetch tests and view results
+
+          After you have generated tests as a teacher and students submitted answers, teachers can fetch their tests and inspect student results.
+
+          ### 1) Get tests created by the logged-in teacher
+
+          - Method: GET
+          - URL: `http://localhost:3000/api/test/teacher`
+          - Headers: `Authorization: Bearer <TEACHER_TOKEN>`
+
+          Example response (200):
+          ```json
+          {
+            "success": true,
+            "data": {
+              "tests": [
+                {
+                  "id": "6914ec9edaafbefeb9f86171",
+                  "title": "Android",
+                  "subject": "Mobile Dev",
+                  "difficulty": "medium",
+                  "total_questions": 5,
+                  "created_at": "2025-11-12T10:30:00.000Z",
+                  "submissions": 3
+                }
+              ]
+            }
+          }
+          ```
+
+          ### 2) Get results for a specific test
+
+          - Method: GET
+          - URL: `http://localhost:3000/api/test/{testId}/results` (replace `{testId}`)
+          - Headers: `Authorization: Bearer <TEACHER_TOKEN>`
+
+          Example response (200):
+          ```json
+          {
+            "success": true,
+            "data": {
+              "testId": "6914ec9edaafbefeb9f86171",
+              "results": [
+                {
+                  "result_id": "673376c1d2e3f4g5h6i7j8k9",
+                  "student_id": "60e2b...",
+                  "student_email": "student1@test.com",
+                  "student_name": "Test Student",
+                  "score": 4,
+                  "total_questions": 5,
+                  "percentage": 80,
+                  "time_taken_seconds": 1200,
+                  "submitted_at": "2025-11-12T12:12:00.000Z",
+                  "flagged_for_cheating": false,
+                  "cheating_reasons": []
+                }
+              ]
+            }
+          }
+          ```
+
+          Notes:
+          - Only the teacher who created the test can access the results (owner check).
+          - If there are no results yet, the `results` array will be empty.
+
         "url": {
           "raw": "http://localhost:3000/api/auth/register",
           "protocol": "http",

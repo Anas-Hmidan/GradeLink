@@ -3,17 +3,20 @@
 import type { FC } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { FileText, Clock } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { FileText, Clock, Users } from "lucide-react"
 
 interface Test {
   id: string
+  test_code: string
   title: string
   description?: string
   subject: string
   difficulty: string
   total_questions: number
-  duration_minutes: number
+  duration_minutes?: number
   created_at: string
+  submissions?: number
 }
 
 interface TestCardProps {
@@ -63,12 +66,23 @@ const TestCard: FC<TestCardProps> = ({ test, onSelect }) => {
           <span className="text-foreground font-medium">{test.total_questions}</span>
           <span className="text-muted-foreground">questions</span>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <Clock className="w-4 h-4 text-muted-foreground" />
-          <span className="text-foreground font-medium">{test.duration_minutes}</span>
-          <span className="text-muted-foreground">min</span>
-        </div>
+        {test.duration_minutes && (
+          <div className="flex items-center gap-2 text-sm">
+            <Clock className="w-4 h-4 text-muted-foreground" />
+            <span className="text-foreground font-medium">{test.duration_minutes}</span>
+            <span className="text-muted-foreground">min</span>
+          </div>
+        )}
       </div>
+
+      {test.submissions !== undefined && (
+        <div className="mb-4">
+          <Badge variant="outline" className="text-xs">
+            <Users className="w-3 h-3 mr-1" />
+            {test.submissions} {test.submissions === 1 ? 'submission' : 'submissions'}
+          </Badge>
+        </div>
+      )}
 
       <div className="pt-4 border-t border-border flex justify-between items-center">
         <span className="text-xs text-muted-foreground">
