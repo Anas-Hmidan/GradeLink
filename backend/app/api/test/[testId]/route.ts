@@ -23,12 +23,30 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json(errorResponse("TEST_NOT_FOUND", "Test not found"), { status: 404 })
     }
 
-    // Return questions without answers (for students)
+    // Students can only view test metadata (not questions) without the code
+    // They must use /api/test/code/{code} to access the full test
+    if (auth.role === "student") {
+      return NextResponse.json(
+        successResponse({
+          id: test._id.toString(),
+          title: test.title,
+          description: test.description,
+          subject: test.subject,
+          difficulty: test.difficulty,
+          duration_minutes: test.duration_minutes,
+          total_questions: test.total_questions,
+          test_code_required: true,
+          message: "Use the test code to access this test at /api/test/code/{code}",
+        }),
+      )
+    }
+
+    // Teachers can see full test details including questions
     const questionsWithoutAnswers = test.questions.map((q: any) => ({
       id: q.id,
       question: q.question,
       options: q.options,
-      // Do NOT include correct_answer or explanation
+      // Do NOT include correct_answer or explanation for now
     }))
 
     return NextResponse.json(
@@ -40,6 +58,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         difficulty: test.difficulty,
         duration_minutes: test.duration_minutes,
         total_questions: test.total_questions,
+        test_code: test.test_code,
         questions: questionsWithoutAnswers,
       }),
     )

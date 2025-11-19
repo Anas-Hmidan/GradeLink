@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #2a2a2a;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .output {
+            margin-top: 10px;
+            padding: 10px;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        input {
+            padding: 8px;
+            margin: 5px 0;
+            background: #333;
+            border: 1px solid #555;
+            color: #fff;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 100%;
+        }
+        h2 { color: #4CAF50; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Backend API Tester</h1>
+    <p>Use this tool to test your backend endpoints before using the desktop app</p>
+
+    <div class="section">
+        <h2>Configuration</h2>
+        <label>Backend URL:</label>
+        <input type="text" id="backendUrl" value="http://localhost:3001" />
+        <p style="font-size: 12px; color: #888;">Change this if your backend runs on a different port</p>
+    </div>
+
+    <div class="section">
+        <h2>1. Test Health Endpoint</h2>
+        <p>Check if backend is running</p>
+        <button onclick="testHealth()">GET /api/health</button>
+        <div id="healthOutput" class="output"></div>
+    </div>
+
+    <div class="section">
+        <h2>2. Test Register</h2>
+        <label>Email:</label>
+        <input type="email" id="registerEmail" value="test@student.com" />
+        <label>Password:</label>
+        <input type="password" id="registerPassword" value="test123" />
+        <label>Full Name:</label>
+        <input type="text" id="registerName" value="Test Student" />
+        <button onclick="testRegister()">POST /api/auth/register</button>
+        <div id="registerOutput" class="output"></div>
+    </div>
+
+    <div class="section">
+        <h2>3. Test Login</h2>
+        <label>Email:</label>
+        <input type="email" id="loginEmail" value="test@student.com" />
+        <label>Password:</label>
+        <input type="password" id="loginPassword" value="test123" />
+        <button onclick="testLogin()">POST /api/auth/login</button>
+        <div id="loginOutput" class="output"></div>
+    </div>
+
+    <div class="section">
+        <h2>4. Test Access Test</h2>
+        <label>Test Code:</label>
+        <input type="text" id="testCode" value="TEST1234" maxlength="8" />
+        <label>Token (from login/register):</label>
+        <input type="text" id="accessToken" placeholder="Paste token here" />
+        <button onclick="testAccess()">POST /api/test/access</button>
+        <div id="accessOutput" class="output"></div>
+    </div>
+
+    <script>
+        function getBackendUrl() {
+            return document.getElementById('backendUrl').value.trim();
+        }
+
+        function log(elementId, message, type = 'info') {
+            const output = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : '';
+            output.innerHTML = `<span class="${className}">[${timestamp}] ${message}</span>\n` + output.innerHTML;
+        }
+
+        async function testHealth() {
+            const output = 'healthOutput';
+            const url = `${getBackendUrl()}/api/health`;
+            
+            log(output, `Testing: ${url}`, 'info');
+            
+            try {
+                const response = await fetch(url);
+                log(output, `Status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+                
+                const contentType = response.headers.get('content-type');
+                log(output, `Content-Type: ${contentType}`, 'info');
+                
+                const text = await response.text();
+                log(output, `Response: ${text}`, response.ok ? 'success' : 'error');
+            } catch (error) {
+                log(output, `Error: ${error.message}`, 'error');
+                log(output, 'Possible issues: 1) Backend not running, 2) Wrong URL, 3) CORS issue', 'warning');
+            }
+        }
+
+        async function testRegister() {
+            const output = 'registerOutput';
+            const url = `${getBackendUrl()}/api/auth/register`;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const fullName = document.getElementById('registerName').value;
+            
+            const body = {
+                email,
+                password,
+                full_name: fullName,
+                role: 'student'
+            };
+            
+            log(output, `POST ${url}`, 'info');
+            log(output, `Body: ${JSON.stringify(body, null, 2)}`, 'info');
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+                
+                log(output, `Status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+                
+                const contentType = response.headers.get('content-type');
+                log(output, `Content-Type: ${contentType}`, 'info');
+                
+                const text = await response.text();
+                
+                if (contentType && contentType.includes('application/json')) {
+                    const data = JSON.parse(text);
+                    log(output, `Response: ${JSON.stringify(data, null, 2)}`, response.ok ? 'success' : 'error');
+                    
+                    if (data.token) {
+                        log(output, `✅ Token received! Copy it to test other endpoints`, 'success');
+                        document.getElementById('accessToken').value = data.token;
+                    }
+                } else {
+                    log(output, `Response (not JSON): ${text.substring(0, 500)}`, 'error');
+                    log(output, '❌ Backend returned HTML instead of JSON. Check the endpoint URL!', 'error');
+                }
+            } catch (error) {
+                log(output, `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLogin() {
+            const output = 'loginOutput';
+            const url = `${getBackendUrl()}/api/auth/login`;
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            const body = { email, password };
+            
+            log(output, `POST ${url}`, 'info');
+            log(output, `Body: ${JSON.stringify(body, null, 2)}`, 'info');
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+                
+                log(output, `Status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+                
+                const contentType = response.headers.get('content-type');
+                const text = await response.text();
+                
+                if (contentType && contentType.includes('application/json')) {
+                    const data = JSON.parse(text);
+                    log(output, `Response: ${JSON.stringify(data, null, 2)}`, response.ok ? 'success' : 'error');
+                    
+                    if (data.token) {
+                        document.getElementById('accessToken').value = data.token;
+                    }
+                } else {
+                    log(output, `Response (not JSON): ${text.substring(0, 500)}`, 'error');
+                }
+            } catch (error) {
+                log(output, `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAccess() {
+            const output = 'accessOutput';
+            const url = `${getBackendUrl()}/api/test/access`;
+            const code = document.getElementById('testCode').value.toUpperCase();
+            const token = document.getElementById('accessToken').value;
+            
+            if (!token) {
+                log(output, '❌ Please login or register first to get a token!', 'error');
+                return;
+            }
+            
+            const body = { test_code: code };
+            
+            log(output, `POST ${url}`, 'info');
+            log(output, `Body: ${JSON.stringify(body, null, 2)}`, 'info');
+            log(output, `Token: ${token.substring(0, 20)}...`, 'info');
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(body)
+                });
+                
+                log(output, `Status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+                
+                const text = await response.text();
+                
+                try {
+                    const data = JSON.parse(text);
+                    log(output, `Response: ${JSON.stringify(data, null, 2)}`, response.ok ? 'success' : 'error');
+                } catch {
+                    log(output, `Response (not JSON): ${text.substring(0, 500)}`, 'error');
+                }
+            } catch (error) {
+                log(output, `Error: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

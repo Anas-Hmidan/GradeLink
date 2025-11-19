@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useParams } from "next/navigation"
 import { useNavigate } from "@/lib/navigation"
 import { useAuth } from "@/hooks/use-auth"
@@ -42,18 +42,8 @@ export default function TestDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
-  useEffect(() => {
-    if (authLoading) return
-    if (!user) {
-      navigate("/login")
-      return
-    }
-    if (testId) {
-      fetchTestDetails()
-    }
-  }, [user, authLoading, testId, navigate])
-
-  const fetchTestDetails = async () => {
+  const fetchTestDetails = useCallback(async () => {
+    if (!testId) return
     try {
       const response = await axios.get(`/api/test/${testId}`)
       setTest(response.data.data || response.data.test)
@@ -63,15 +53,51 @@ export default function TestDetailsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [testId])
 
-  const copyTestCode = () => {
-    if (test?.test_code) {
-      navigator.clipboard.writeText(test.test_code)
-      toast({
-        title: "Test Code Copied!",
-        description: "Share this code with students to take the test",
-      })
+  useEffect(() => {
+    if (authLoading) return
+    if (!user) {
+      navigate("/login")
+      return
+    }
+    fetchTestDetails()
+  }, [user, authLoading, fetchTestDetails])
+
+  const copyTestCode = async () => {
+    const code = test?.test_code || testId
+    if (!code) {
+      toast({ title: "No test code", description: "This test does not have a shareable code" })
+      return
+    }
+
+    // Try modern clipboard API first
+    try {
+      await navigator.clipboard.writeText(code)
+      toast({ title: "Test Code Copied!", description: `Share this code with students: ${code}` })
+      return
+    } catch (err) {
+      // ignore - try fallback below
+    }
+
+    // Fallback for older browsers: temporary textarea + execCommand
+    try {
+      const el = document.createElement("textarea")
+      el.value = code
+      el.setAttribute("readonly", "")
+      el.style.position = "absolute"
+      el.style.left = "-9999px"
+      document.body.appendChild(el)
+      el.select()
+      const ok = document.execCommand("copy")
+      document.body.removeChild(el)
+      if (ok) {
+        toast({ title: "Test Code Copied!", description: `Copy succeeded (fallback): ${code}` })
+      } else {
+        toast({ title: "Copy failed", description: "Allow clipboard access or copy the code manually" })
+      }
+    } catch (err) {
+      toast({ title: "Copy failed", description: "Allow clipboard access or copy the code manually" })
     }
   }
 

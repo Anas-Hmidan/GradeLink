@@ -21,33 +21,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ code
       return NextResponse.json(errorResponse("FORBIDDEN", "Only students can access tests by code"), { status: 403 })
     }
 
-    const { code } = await params
-    const testCode = code.toUpperCase()
+    return NextResponse.json(
+      errorResponse(
+        "DEPRECATED_ENDPOINT",
+        "This endpoint is deprecated. Please use POST /api/test/access with the test code in the request body instead.",
+      ),
+      { status: 410 },
+    )
+  } catch (error: any) {
+    console.error("Get test by code error:", error)
 
-    const { db } = await connectToDatabase()
-
-    // Find test by code
-    const test = await db.collection("tests").findOne({ test_code: testCode })
-
-    if (!test) {
-      return NextResponse.json(errorResponse("TEST_NOT_FOUND", "No test found with this code"), { status: 404 })
+    if (error.message === "UNAUTHORIZED") {
+      return NextResponse.json(errorResponse("UNAUTHORIZED", "Authentication required"), { status: 401 })
     }
 
-    // Remove correct answers and explanations from questions for students
-    const sanitizedQuestions = test.questions.map((q: any) => ({
-      id: q.id,
-      question: q.question,
-      options: q.options,
-    }))
-
-    return NextResponse.json(
-      successResponse({
-        id: test._id.toString(),
-        title: test.title,
-        description: test.description,
-        subject: test.subject,
-        difficulty: test.difficulty,
-        duration_minutes: test.duration_minutes,
+    return NextResponse.json(errorResponse("INTERNAL_ERROR", "An error occurred while fetching the test"), {
+      status: 500,
+    })
+  }
+}
         total_questions: test.total_questions,
         questions: sanitizedQuestions,
         test_code: test.test_code,

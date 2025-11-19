@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useNavigate } from "@/lib/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import axios from "@/lib/axios"
@@ -45,16 +45,7 @@ export default function ResultsPage() {
   const { user, loading: authLoading } = useAuth()
   const navigate = useNavigate()
 
-  useEffect(() => {
-    if (authLoading) return
-    if (!user) {
-      navigate("/login")
-      return
-    }
-    fetchResults()
-  }, [user, authLoading, navigate, selectedTest])
-
-  const fetchResults = async () => {
+  const fetchResults = useCallback(async () => {
     setLoading(true)
     try {
       // If a specific test is selected, fetch its results
@@ -118,7 +109,16 @@ export default function ResultsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedTest])
+
+  useEffect(() => {
+    if (authLoading) return
+    if (!user) {
+      navigate("/login")
+      return
+    }
+    fetchResults()
+  }, [user, authLoading, fetchResults])
 
   const handleExportCSV = () => {
     try {

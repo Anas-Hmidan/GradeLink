@@ -158,6 +158,15 @@ export async function POST(request: NextRequest) {
     const duration_minutes = parseInt(formData.get("duration_minutes") as string, 10)
     const file = formData.get("file") as File | null
 
+    // Debug logging
+    console.log("📝 Received form data:")
+    console.log("  - title:", title)
+    console.log("  - subject:", subject)
+    console.log("  - difficulty:", difficulty)
+    console.log("  - total_questions:", total_questions)
+    console.log("  - duration_minutes:", duration_minutes)
+    console.log("  - file:", file ? `${file.name} (${file.type}, ${file.size} bytes)` : "NO FILE")
+
     // Validation
     const validationErrors = validateTestCreation(title, subject, total_questions)
     if (validationErrors.length > 0) {

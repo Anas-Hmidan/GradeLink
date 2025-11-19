@@ -38,65 +38,54 @@ Note: Student endpoints require `Authorization` header with `Bearer <JWT_TOKEN>`
 
 ---
 
-## 3. Get test by code (Student access)
-- Method: GET
-- URL: /api/test/code/{code}
+## 3. Access test with code (Required to take test)
+- Method: POST
+- URL: /api/test/access
 - Headers:
   - Authorization: Bearer <JWT_TOKEN>
-- Body: None
-- Response: 200
+  - Content-Type: application/json
+- Body:
+```json
+{
+  "test_code": "ABC12XYZ"
+}
+```
+- Success Response: 200
 ```json
 {
   "success": true,
   "data": {
     "id": "...",
     "test_code": "ABC12XYZ",
-    "title": "...",
-    "description": "...",
-    "subject": "...",
-    "difficulty": "...",
+    "title": "Midterm Exam",
+    "description": "Test covering chapters 1-5",
+    "subject": "Mathematics",
+    "difficulty": "medium",
     "duration_minutes": 60,
     "total_questions": 5,
     "questions": [
-      { "id": "q-1", "question": "...", "options": ["A","B","C","D"] }
+      { "id": "q-1", "question": "What is 2+2?", "options": ["2","3","4","5"] },
+      { "id": "q-2", "question": "What is 5*5?", "options": ["20","25","30","35"] }
     ]
   }
 }
 ```
-
-**Note**: Students access tests using the 8-character code shared by their teacher. This endpoint does NOT include `correct_answer` nor explanations.
-
----
-
-## 4. Get test details by ID (Alternative access)
-- Method: GET
-- URL: /api/test/{testId}
-- Headers:
-  - Authorization: Bearer <JWT_TOKEN>
-- Body: None
-- Response: 200
+- Error Response (Invalid Code): 403
 ```json
 {
-  "success": true,
-  "data": {
-    "id": "...",
-    "title": "...",
-    "subject": "...",
-    "difficulty": "...",
-    "duration_minutes": 60,
-    "total_questions": 5,
-    "questions": [
-      { "id": "q-1", "question": "...", "options": ["A","B","C","D"] }
-    ]
+  "success": false,
+  "error": {
+    "code": "INVALID_CODE",
+    "message": "Invalid test code"
   }
 }
 ```
 
-Note: Student view DOES NOT include `correct_answer` nor explanations.
+**Important**: Students MUST provide the correct 8-character code to access the test. Without the correct code, access is denied. This is like entering a password to unlock the test.
 
 ---
 
-## 5. Submit test answers
+## 4. Submit test answers
 - Method: POST
 - URL: /api/test/{testId}/submit
 - Headers:
@@ -128,7 +117,7 @@ Note: Student view DOES NOT include `correct_answer` nor explanations.
 
 ---
 
-## 6. Get my test results (Student's history)
+## 5. Get my test results (Student's history)
 - Method: GET
 - URL: /api/student/results
 - Headers:
@@ -167,5 +156,14 @@ Note: Student view DOES NOT include `correct_answer` nor explanations.
 
 ---
 
-## Extra: If student needs a list of tests
-This repo currently does not provide a public `list all tests` endpoint; tests are retrievable by ID or by teacher. If the frontend needs a `available tests` endpoint for students, we can add `GET /api/test` with optional rules (e.g., list public tests or those assigned to students).
+## How Students Access Tests
+
+**Important Flow:**
+1. Teacher creates a test and receives an **8-character code** (e.g., `ABC12XYZ`)
+2. Teacher shares this code with students (via class announcement, email, etc.)
+3. Student wants to take the test → Must **POST the code** to `/api/test/access`
+4. If code is correct → Student receives the full test with questions
+5. If code is wrong → Access denied with 403 error
+6. Student answers questions → Submits via `/api/test/{testId}/submit`
+
+**Think of it like a password:** The test code acts as a password that students must enter correctly to unlock and take the test. Without the correct code, they cannot see or answer any questions.

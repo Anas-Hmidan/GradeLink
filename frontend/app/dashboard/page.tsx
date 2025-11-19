@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useNavigate } from "@/lib/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
@@ -30,16 +30,7 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth()
   const navigate = useNavigate()
 
-  useEffect(() => {
-    if (authLoading) return
-    if (!user) {
-      navigate("/login")
-      return
-    }
-    fetchTests()
-  }, [user, authLoading, navigate])
-
-  const fetchTests = async () => {
+  const fetchTests = useCallback(async () => {
     try {
       const response = await axios.get("/api/test/teacher")
       const testsData = response.data.data?.tests || []
@@ -50,7 +41,16 @@ export default function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (authLoading) return
+    if (!user) {
+      navigate("/login")
+      return
+    }
+    fetchTests()
+  }, [user, authLoading, fetchTests])
 
   if (authLoading || loading) return <LoadingSpinner />
 

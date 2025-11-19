@@ -31,7 +31,7 @@ export default function CreateTestPage() {
     if (!authLoading && !user) {
       navigate("/login")
     }
-  }, [authLoading, user, navigate])
+  }, [authLoading, user])
 
   if (authLoading) return <LoadingSpinner />
   if (!user) return null

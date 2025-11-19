@@ -19,6 +19,7 @@ interface QuestionPanelProps {
   onPrevious: () => void
   onSubmit: () => void
   isLastQuestion: boolean
+  submitting?: boolean
 }
 
 export default function QuestionPanel({
@@ -31,6 +32,7 @@ export default function QuestionPanel({
   onPrevious,
   onSubmit,
   isLastQuestion,
+  submitting = false,
 }: QuestionPanelProps) {
   return (
     <div className="bg-card border border-border rounded-lg flex flex-col h-full overflow-hidden">
@@ -98,10 +100,20 @@ export default function QuestionPanel({
         {isLastQuestion ? (
           <button
             onClick={onSubmit}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition font-semibold"
+            disabled={submitting}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Send className="w-4 h-4" />
-            <span className="text-sm">Submit Test</span>
+            {submitting ? (
+              <>
+                <span className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></span>
+                <span className="text-sm">Submitting...</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4" />
+                <span className="text-sm">Submit Test</span>
+              </>
+            )}
           </button>
         ) : (
           <button

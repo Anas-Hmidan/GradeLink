@@ -1,46 +1,71 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import * as faceapi from "face-api.js"
-import { AlertCircle, Camera } from "lucide-react"
+import { AlertCircle, Camera, Wifi, WifiOff } from "lucide-react"
+import { API_CONFIG } from "@/lib/api-config"
 
 interface CameraMonitorProps {
   onSuspiciousActivity: (activity: string) => void
+  studentId?: string
 }
 
-export default function CameraMonitor({ onSuspiciousActivity }: CameraMonitorProps) {
+interface DetectionResult {
+  face_detected: boolean
+  fully_visible: boolean
+  cheating_detected: boolean
+  face_coverage: number
+  face_location?: {
+    x: number
+    y: number
+    w: number
+    h: number
+  }
+  reason: string
+  frame_saved: boolean
+}
+
+const API_URL = API_CONFIG.FACE_DETECTION_URL
+
+export default function CameraMonitor({ onSuspiciousActivity, studentId = "STUDENT_001" }: CameraMonitorProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [detectionActive, setDetectionActive] = useState(false)
+  const [apiConnected, setApiConnected] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [lastDetectionResult, setLastDetectionResult] = useState<DetectionResult | null>(null)
   const lastActivityRef = useRef<Record<string, number>>({})
+  const analysisIntervalRef = useRef<number | null>(null)
+  const drawIntervalRef = useRef<number | null>(null)
 
-  // Load face-api models
+  // Check if Python API is running
   useEffect(() => {
-    const loadModels = async () => {
+    const checkApiHealth = async () => {
       try {
-        const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/"
+        const response = await fetch(`${API_URL}/health`)
+        const data = await response.json()
         
-        console.log("Loading face detection models...")
-        
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
-          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-        ])
-
-        console.log("Models loaded successfully!")
-        setLoading(false)
+        if (data.status === "ok") {
+          console.log("✅ Python API connected:", data.service)
+          setApiConnected(true)
+          setLoading(false)
+        } else {
+          throw new Error("API unhealthy")
+        }
       } catch (err) {
-        console.error("Error loading face-api models:", err)
-        setError("Failed to load face detection models. Check your internet connection.")
+        console.error("❌ Python API not available:", err)
+        setError("Detection API not running. Please start the Python backend (python api.py)")
+        setApiConnected(false)
         setLoading(false)
       }
     }
 
-    loadModels()
+    checkApiHealth()
+    
+    // Recheck every 10 seconds
+    const interval = setInterval(checkApiHealth, 10000)
+    return () => clearInterval(interval)
   }, [])
 
   // Initialize camera
@@ -111,176 +136,217 @@ export default function CameraMonitor({ onSuspiciousActivity }: CameraMonitorPro
     }
   }, [loading])
 
-  // Face detection loop
+  // Face detection using Python API
   useEffect(() => {
-    if (!detectionActive || !videoRef.current || !canvasRef.current) return
+    if (!detectionActive || !apiConnected || !videoRef.current || !canvasRef.current) return
 
-    let animationId: number
+    const analyzeFrame = async () => {
+      // Skip if already analyzing
+      if (isAnalyzing) {
+        console.log("Skipping frame - analysis in progress")
+        return
+      }
 
-    const detectFaces = async () => {
       try {
+        setIsAnalyzing(true)
+        console.log("🔍 Starting frame analysis...")
+        
         const video = videoRef.current
         const canvas = canvasRef.current
 
-        if (!video || !canvas) return
+        if (!video || !canvas) {
+          console.log("❌ No video or canvas ref")
+          setIsAnalyzing(false)
+          return
+        }
 
         // Check if video is ready
         if (video.readyState !== video.HAVE_ENOUGH_DATA) {
-          animationId = requestAnimationFrame(detectFaces)
+          console.log("⏳ Video not ready yet")
+          setIsAnalyzing(false)
           return
         }
 
         const ctx = canvas.getContext("2d")
-        if (!ctx) return
+        if (!ctx) {
+          console.log("❌ No canvas context")
+          setIsAnalyzing(false)
+          return
+        }
 
-        // Clear canvas
+        // Clear canvas and draw video frame
         ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-        // Draw video frame first (before detection)
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-        // Detect faces
-        const detections = await faceapi
-          .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ 
-            inputSize: 416,
-            scoreThreshold: 0.5 
-          }))
-          .withFaceLandmarks()
-          .withFaceExpressions()
+        console.log("📸 Capturing frame and converting to base64...")
+        
+        // Convert canvas to base64 for API
+        const frameData = canvas.toDataURL('image/jpeg', 0.8)
+        const base64Frame = frameData.split(',')[1] // Remove data:image/jpeg;base64, prefix
 
-        console.log("Detections:", detections.length, "faces found")
+        console.log(`📤 Sending to API (frame size: ${(base64Frame.length / 1024).toFixed(2)} KB)...`)
 
-        if (detections.length === 0) {
-          // No face detected
+        // Send to Python API
+        const response = await fetch(`${API_URL}/analyze-frame`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            frame: base64Frame,
+            student_id: studentId,
+          }),
+        })
+
+        if (!response.ok) {
+          console.error(`❌ API Error: ${response.status} ${response.statusText}`)
+          throw new Error(`API returned ${response.status}`)
+        }
+
+        const result: DetectionResult = await response.json()
+        
+        console.log("📊 Detection result:", result)
+        setLastDetectionResult(result)
+
+        // Handle detection results
+        if (result.cheating_detected) {
           const now = Date.now()
-          if (!lastActivityRef.current["noFace"]) {
-            lastActivityRef.current["noFace"] = now
-          } else if (now - lastActivityRef.current["noFace"] > 2000) {
-            console.log("🚨 SUSPICIOUS: Face left frame")
-            onSuspiciousActivity("Face left frame")
-            lastActivityRef.current["noFace"] = now + 10000 // Cooldown
+          const reason = result.reason
+
+          // Map API reasons to user-friendly messages
+          let activityMessage = ""
+          let activityKey = ""
+
+          switch (reason) {
+            case "face_not_detected":
+              activityMessage = "No face detected in frame"
+              activityKey = "noFace"
+              break
+            case "face_out_of_frame":
+              activityMessage = "Face moved out of frame"
+              activityKey = "outOfFrame"
+              break
+            case "face_partially_visible":
+              activityMessage = "Face partially hidden"
+              activityKey = "partialFace"
+              break
+            case "multiple_faces_detected":
+              activityMessage = "Multiple people detected"
+              activityKey = "multipleFaces"
+              break
+            default:
+              activityMessage = `Suspicious activity: ${reason}`
+              activityKey = "other"
           }
 
-          // Draw warning
+          // Trigger warning with cooldown
+          if (!lastActivityRef.current[activityKey] || 
+              now - lastActivityRef.current[activityKey] > 5000) {
+            console.log(`🚨 SUSPICIOUS: ${activityMessage}`)
+            onSuspiciousActivity(activityMessage)
+            lastActivityRef.current[activityKey] = now
+          }
+
+          // Draw red warning overlay
           ctx.fillStyle = "rgba(255, 0, 0, 0.3)"
           ctx.fillRect(0, 0, canvas.width, canvas.height)
           ctx.fillStyle = "#ff0000"
-          ctx.font = "bold 16px Arial"
+          ctx.font = "bold 18px Arial"
           ctx.textAlign = "center"
-          ctx.fillText("No face detected!", canvas.width / 2, canvas.height / 2)
-        } else {
-          const detection = detections[0]
-          const now = Date.now()
+          ctx.fillText("⚠️ " + activityMessage, canvas.width / 2, canvas.height / 2)
+          ctx.fillText("Frame saved for review", canvas.width / 2, canvas.height / 2 + 30)
 
-          // Draw face box - make it more visible
-          const box = detection.detection.box
+        } else if (result.face_detected) {
+          // Draw green box around face
+          if (result.face_location) {
+            const { x, y, w, h } = result.face_location
+            ctx.strokeStyle = "#00ff00"
+            ctx.lineWidth = 3
+            ctx.strokeRect(x, y, w, h)
+
+            // Draw face coverage indicator
+            ctx.fillStyle = "#00ff00"
+            ctx.font = "bold 14px Arial"
+            ctx.textAlign = "left"
+            ctx.fillText(`Face Coverage: ${(result.face_coverage * 100).toFixed(0)}%`, x, y - 10)
+          }
+
+          // Draw green border
           ctx.strokeStyle = "#00ff00"
-          ctx.lineWidth = 3
-          ctx.strokeRect(box.x, box.y, box.width, box.height)
-
-          // Draw landmarks (eyes, nose, etc.)
-          const faceLandmarks = detection.landmarks
-          ctx.fillStyle = "#00ff00"
-          faceLandmarks.positions.forEach(point => {
-            ctx.beginPath()
-            ctx.arc(point.x, point.y, 2, 0, 2 * Math.PI)
-            ctx.fill()
-          })
-
-          // Draw face label
-          ctx.fillStyle = "#00ff00"
-          ctx.font = "bold 14px Arial"
-          ctx.fillText("Face Detected ✓", box.x, box.y - 10)
-
-          // Check multiple faces
-          if (detections.length > 1) {
-            if (!lastActivityRef.current["multipleFaces"]) {
-              lastActivityRef.current["multipleFaces"] = now
-            } else if (now - lastActivityRef.current["multipleFaces"] > 1500) {
-              console.log("🚨 SUSPICIOUS: Multiple faces detected")
-              onSuspiciousActivity("Multiple faces detected")
-              lastActivityRef.current["multipleFaces"] = now + 10000
-            }
-
-            ctx.fillStyle = "rgba(255, 165, 0, 0.2)"
-            ctx.fillRect(0, 0, canvas.width, canvas.height)
-          }
-
-          // Check head pose (gaze direction)
-          const landmarkPositions = detection.landmarks.positions
-          if (landmarkPositions.length > 20) {
-            const leftEye = landmarkPositions[36]
-            const rightEye = landmarkPositions[45]
-            const nose = landmarkPositions[30]
-
-            const eyesCenterX = (leftEye.x + rightEye.x) / 2
-            const horizontalGaze = Math.abs(eyesCenterX - nose.x)
-
-            if (horizontalGaze > 20) {
-              if (!lastActivityRef.current["lookingAway"]) {
-                lastActivityRef.current["lookingAway"] = now
-              } else if (now - lastActivityRef.current["lookingAway"] > 3000) {
-                console.log("🚨 SUSPICIOUS: Looking away from screen")
-                onSuspiciousActivity("Looking away from screen")
-                lastActivityRef.current["lookingAway"] = now + 10000
-              }
-            } else {
-              lastActivityRef.current["lookingAway"] = 0
-            }
-          }
-
-          // Check expressions
-          const expressions = detection.expressions
-          console.log("Expressions:", {
-            happy: expressions.happy.toFixed(2),
-            sad: expressions.sad.toFixed(2),
-            surprised: expressions.surprised.toFixed(2),
-            neutral: expressions.neutral.toFixed(2)
-          })
-          
-          if (expressions.surprised > 0.5 || expressions.neutral < 0.3) {
-            if (!lastActivityRef.current["suspiciousExpression"]) {
-              lastActivityRef.current["suspiciousExpression"] = now
-            } else if (now - lastActivityRef.current["suspiciousExpression"] > 4000) {
-              console.log("🚨 SUSPICIOUS: Suspicious facial expression detected")
-              onSuspiciousActivity("Suspicious facial expression detected")
-              lastActivityRef.current["suspiciousExpression"] = now + 15000
-            }
-          }
-
-          // Clear status
-          lastActivityRef.current["noFace"] = 0
-
-          // Draw green border when face is detected properly
-          ctx.strokeStyle = "#00ff00"
-          ctx.lineWidth = 3
+          ctx.lineWidth = 4
           ctx.strokeRect(0, 0, canvas.width, canvas.height)
 
-          // Draw status text
+          // Draw status
           ctx.fillStyle = "#00ff00"
-          ctx.font = "bold 12px Arial"
+          ctx.font = "bold 14px Arial"
           ctx.textAlign = "left"
-          ctx.fillText("Monitoring...", 8, 20)
+          ctx.fillText("✓ Monitoring Active", 10, 25)
+
+          // Reset cooldowns
+          Object.keys(lastActivityRef.current).forEach(key => {
+            lastActivityRef.current[key] = 0
+          })
+        } else {
+          // No face detected
+          ctx.fillStyle = "rgba(255, 165, 0, 0.3)"
+          ctx.fillRect(0, 0, canvas.width, canvas.height)
+          ctx.fillStyle = "#ff9900"
+          ctx.font = "bold 16px Arial"
+          ctx.textAlign = "center"
+          ctx.fillText("Please position your face in frame", canvas.width / 2, canvas.height / 2)
         }
+
       } catch (err) {
         console.error("Detection error:", err)
+        // Draw error on canvas
+        const ctx = canvasRef.current?.getContext("2d")
+        if (ctx) {
+          ctx.fillStyle = "#ff0000"
+          ctx.font = "12px Arial"
+          ctx.textAlign = "left"
+          ctx.fillText("API Error - Check console", 10, 50)
+        }
+      } finally {
+        setIsAnalyzing(false)
       }
-
-      animationId = requestAnimationFrame(detectFaces)
     }
 
-    detectFaces()
+    console.log("🚀 Starting detection interval (every 3 seconds)...")
+    
+    // Analyze frames every 3 seconds (reduced from 1 second to prevent overheating)
+    analysisIntervalRef.current = window.setInterval(analyzeFrame, 3000)
+    
+    // Run first analysis immediately
+    setTimeout(analyzeFrame, 1000)
 
     return () => {
-      if (animationId) cancelAnimationFrame(animationId)
+      console.log("🛑 Stopping detection interval")
+      if (analysisIntervalRef.current) {
+        clearInterval(analysisIntervalRef.current)
+      }
     }
-  }, [detectionActive, onSuspiciousActivity])
+  }, [detectionActive, apiConnected, onSuspiciousActivity, studentId])
 
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col h-full">
-      <div className="bg-primary/10 border-b border-border px-4 py-3 flex items-center gap-2">
-        <Camera className="w-4 h-4 text-primary" />
-        <h3 className="font-semibold text-sm">Live Monitoring</h3>
+      <div className="bg-primary/10 border-b border-border px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Camera className="w-4 h-4 text-primary" />
+          <h3 className="font-semibold text-sm">Live Monitoring</h3>
+        </div>
+        <div className="flex items-center gap-2">
+          {apiConnected ? (
+            <>
+              <Wifi className="w-3 h-3 text-green-500" />
+              <span className="text-xs text-green-500">API Connected</span>
+            </>
+          ) : (
+            <>
+              <WifiOff className="w-3 h-3 text-red-500" />
+              <span className="text-xs text-red-500">API Offline</span>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 relative bg-black overflow-hidden">
@@ -319,8 +385,15 @@ export default function CameraMonitor({ onSuspiciousActivity }: CameraMonitorPro
         )}
       </div>
 
-      <div className="bg-muted/50 border-t border-border px-3 py-2 text-xs text-muted-foreground text-center">
-        Your video feed is private and monitored locally
+      <div className="bg-muted/50 border-t border-border px-3 py-2 flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">
+          Analyzed by Python CV Backend • ID: {studentId}
+        </span>
+        {apiConnected && (
+          <span className="text-green-500">
+            ✓ Frames auto-saved on suspicious activity
+          </span>
+        )}
       </div>
     </div>
   )

@@ -4,37 +4,30 @@ import { useState, useEffect, useRef } from "react"
 import CameraMonitor from "./camera-monitor"
 import QuestionPanel from "./question-panel"
 import TestTimer from "./test-timer"
-
-interface Question {
-  id: string
-  question: string
-  options: string[]
-  correctAnswer: number
-}
-
-interface Test {
-  id: string
-  title: string
-  duration: number
-  questions: Question[]
-}
+import { TestService, TestData, TestAnswer } from "@/lib/test-service"
+import { AuthService } from "@/lib/auth-service"
 
 interface ExamInterfaceProps {
-  test: Test
+  test: TestData
   onComplete: (results: any) => void
   onCancel: () => void
 }
 
 export default function ExamInterface({ test, onComplete, onCancel }: ExamInterfaceProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [answers, setAnswers] = useState<Record<string, number>>({})
-  const [timeRemaining, setTimeRemaining] = useState(test.duration * 60)
+  const [answers, setAnswers] = useState<Record<string, { answer: number; startTime: number }>>({})
+  const [timeRemaining, setTimeRemaining] = useState(test.duration_minutes * 60)
   const [suspiciousActivities, setSuspiciousActivities] = useState<string[]>([])
   const [showWarning, setShowWarning] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const warningTimeoutRef = useRef<NodeJS.Timeout>()
+  const questionStartTimeRef = useRef<number>(Date.now())
+  const testStartTimeRef = useRef<number>(Date.now())
 
   const currentQuestion = test.questions[currentQuestionIndex]
   const isLastQuestion = currentQuestionIndex === test.questions.length - 1
+  const user = AuthService.getUser()
+  const studentId = user?.email?.split('@')[0] || "STUDENT"
 
   // Handle time expiration
   useEffect(() => {
@@ -50,8 +43,14 @@ export default function ExamInterface({ test, onComplete, onCancel }: ExamInterf
     return () => clearInterval(timer)
   }, [timeRemaining])
 
+  // Track question start time
+  useEffect(() => {
+    questionStartTimeRef.current = Date.now()
+  }, [currentQuestionIndex])
+
   const handleSuspiciousActivity = (activity: string) => {
-    setSuspiciousActivities((prev) => [...prev, activity])
+    const timestamp = new Date().toISOString()
+    setSuspiciousActivities((prev) => [...prev, `[${timestamp}] ${activity}`])
     setShowWarning(true)
 
     if (warningTimeoutRef.current) {
@@ -66,7 +65,10 @@ export default function ExamInterface({ test, onComplete, onCancel }: ExamInterf
   const handleAnswerChange = (optionIndex: number) => {
     setAnswers({
       ...answers,
-      [currentQuestion.id]: optionIndex,
+      [currentQuestion.id]: {
+        answer: optionIndex,
+        startTime: questionStartTimeRef.current,
+      },
     })
   }
 
@@ -82,21 +84,53 @@ export default function ExamInterface({ test, onComplete, onCancel }: ExamInterf
     }
   }
 
-  const handleSubmitTest = () => {
-    let correctCount = 0
+  const handleSubmitTest = async () => {
+    if (submitting) return
+    
+    setSubmitting(true)
 
-    test.questions.forEach((question) => {
-      if (answers[question.id] === question.correctAnswer) {
-        correctCount++
+    try {
+      // Calculate total time taken
+      const totalTimeSeconds = test.duration_minutes * 60 - timeRemaining
+
+      // Prepare answers payload
+      const answersPayload: TestAnswer[] = test.questions.map((question) => {
+        const answerData = answers[question.id]
+        const timeSpent = answerData 
+          ? Math.floor((Date.now() - answerData.startTime) / 1000)
+          : 0
+
+        return {
+          question_id: question.id,
+          selected_answer: answerData?.answer ?? -1, // -1 means not answered
+          time_spent_seconds: timeSpent,
+        }
+      })
+
+      // Submit to backend
+      const response = await TestService.submitTest(test.id, {
+        answers: answersPayload,
+        total_time_seconds: totalTimeSeconds,
+      })
+
+      if (response.success && response.data) {
+        // Pass results to parent
+        onComplete({
+          ...response.data,
+          suspiciousActivities,
+          timeUsed: totalTimeSeconds,
+          answeredQuestions: answersPayload.filter(a => a.selected_answer !== -1).length,
+        })
+      } else {
+        // Show error and allow retry
+        alert(response.error?.message || "Failed to submit test. Please try again.")
+        setSubmitting(false)
       }
-    })
-
-    onComplete({
-      correctAnswers: correctCount,
-      totalQuestions: test.questions.length,
-      suspiciousActivities,
-      timeUsed: test.duration * 60 - timeRemaining,
-    })
+    } catch (error) {
+      console.error("Submit error:", error)
+      alert("An error occurred while submitting. Please try again.")
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -118,8 +152,13 @@ export default function ExamInterface({ test, onComplete, onCancel }: ExamInterf
             </div>
           )}
           <button
-            onClick={onCancel}
+            onClick={() => {
+              if (confirm("Are you sure you want to exit? Your progress will be lost.")) {
+                onCancel()
+              }
+            }}
             className="text-muted-foreground hover:text-foreground transition text-sm font-semibold"
+            disabled={submitting}
           >
             Exit Test
           </button>
@@ -132,7 +171,7 @@ export default function ExamInterface({ test, onComplete, onCancel }: ExamInterf
         <div className="flex-1 flex flex-col">
           <QuestionPanel
             question={currentQuestion}
-            selectedAnswer={answers[currentQuestion.id]}
+            selectedAnswer={answers[currentQuestion.id]?.answer}
             onAnswerChange={handleAnswerChange}
             currentIndex={currentQuestionIndex}
             totalQuestions={test.questions.length}
@@ -140,12 +179,16 @@ export default function ExamInterface({ test, onComplete, onCancel }: ExamInterf
             onPrevious={handlePreviousQuestion}
             onSubmit={handleSubmitTest}
             isLastQuestion={isLastQuestion}
+            submitting={submitting}
           />
         </div>
 
         {/* Camera Monitor */}
         <div className="w-80">
-          <CameraMonitor onSuspiciousActivity={handleSuspiciousActivity} />
+          <CameraMonitor 
+            onSuspiciousActivity={handleSuspiciousActivity} 
+            studentId={studentId}
+          />
         </div>
       </div>
     </div>
