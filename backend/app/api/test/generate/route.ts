@@ -1,5 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/db"
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
 import { getAuthToken, verifyAuth, requireRole } from "@/lib/middleware/auth"
 import { validateTestCreation } from "@/lib/utils/validation"
 import { successResponse, errorResponse } from "@/lib/utils/response"

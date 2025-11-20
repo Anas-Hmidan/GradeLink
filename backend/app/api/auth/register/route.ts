@@ -6,6 +6,9 @@ import { successResponse, errorResponse } from "@/lib/utils/response"
 import { rateLimit } from "@/lib/middleware/rateLimit"
 import { handleCorsPreflightRequest, corsHeaders } from "@/lib/utils/cors"
 
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
 export async function OPTIONS(request: NextRequest) {
   return handleCorsPreflightRequest(request.headers.get("origin"))
 }

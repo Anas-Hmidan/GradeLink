@@ -1,5 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/db"
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
 import { getAuthToken, verifyAuth, requireAuth } from "@/lib/middleware/auth"
 import { successResponse, errorResponse } from "@/lib/utils/response"
 import { ObjectId } from "mongodb"
