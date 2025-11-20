@@ -1,41 +1,31 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-// Allow multiple origins for CORS
-const ALLOWED_ORIGINS = [
-  "http://localhost:3000",
-  "http://localhost:3001",
-  process.env.FRONTEND_ORIGIN || "",
-].filter(Boolean)
-
 export function middleware(req: NextRequest) {
-  const origin = req.headers.get("origin")
-  
-  // Determine which origin to allow
-  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) 
-    ? origin 
-    : ALLOWED_ORIGINS[0]
+  const origin = req.headers.get("origin") || "*"
 
-  // Handle CORS preflight
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new NextResponse(null, {
-      status: 204,
+      status: 200,
       headers: {
-        "Access-Control-Allow-Origin": allowedOrigin,
-        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,PATCH,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept",
         "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Max-Age": "86400", // Cache preflight for 24 hours
+        "Access-Control-Max-Age": "86400",
       },
     })
   }
 
-  const res = NextResponse.next()
-  res.headers.set("Access-Control-Allow-Origin", allowedOrigin)
-  res.headers.set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,PATCH,OPTIONS")
-  res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
-  res.headers.set("Access-Control-Allow-Credentials", "true")
-  return res
+  // Add CORS headers to all responses
+  const response = NextResponse.next()
+  response.headers.set("Access-Control-Allow-Origin", origin)
+  response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
+  response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept")
+  response.headers.set("Access-Control-Allow-Credentials", "true")
+  
+  return response
 }
 
 export const config = {
