@@ -3,14 +3,22 @@ import { connectToDatabase } from "@/lib/db"
 import { verifyPassword, generateToken } from "@/lib/utils/auth"
 import { successResponse, errorResponse } from "@/lib/utils/response"
 import { rateLimit } from "@/lib/middleware/rateLimit"
+import { handleCorsPreflightRequest, corsHeaders } from "@/lib/utils/cors"
+
+export async function OPTIONS(request: NextRequest) {
+  return handleCorsPreflightRequest(request.headers.get("origin"))
+}
 
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get("origin")
+  
   try {
     // Rate limiting: 10 login attempts per IP per hour
     const ip = request.headers.get("x-forwarded-for") || "unknown"
     if (!rateLimit(`login-${ip}`, 10, 60 * 60 * 1000)) {
       return NextResponse.json(errorResponse("RATE_LIMITED", "Too many login attempts. Try again later."), {
         status: 429,
+        headers: corsHeaders(origin),
       })
     }
 
@@ -28,14 +36,14 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(
         errorResponse("INVALID_JSON", "Invalid JSON body"),
-        { status: 400 },
+        { status: 400, headers: corsHeaders(origin) },
       )
     }
 
     const { email, password } = body
 
     if (!email || !password) {
-      return NextResponse.json(errorResponse("MISSING_FIELDS", "Email and password are required"), { status: 400 })
+      return NextResponse.json(errorResponse("MISSING_FIELDS", "Email and password are required"), { status: 400, headers: corsHeaders(origin) })
     }
 
     const { db } = await connectToDatabase()
@@ -43,13 +51,13 @@ export async function POST(request: NextRequest) {
     // Find user
     const user = await db.collection("users").findOne({ email: email.toLowerCase() })
     if (!user) {
-      return NextResponse.json(errorResponse("INVALID_CREDENTIALS", "Invalid email or password"), { status: 401 })
+      return NextResponse.json(errorResponse("INVALID_CREDENTIALS", "Invalid email or password"), { status: 401, headers: corsHeaders(origin) })
     }
 
     // Verify password
     const passwordMatch = await verifyPassword(password, user.password, user.salt)
     if (!passwordMatch) {
-      return NextResponse.json(errorResponse("INVALID_CREDENTIALS", "Invalid email or password"), { status: 401 })
+      return NextResponse.json(errorResponse("INVALID_CREDENTIALS", "Invalid email or password"), { status: 401, headers: corsHeaders(origin) })
     }
 
     const token = generateToken(user._id.toString(), user.role)
@@ -64,9 +72,15 @@ export async function POST(request: NextRequest) {
         },
         token,
       }),
+      {
+        headers: corsHeaders(origin),
+      }
     )
   } catch (error) {
     console.error("Login error:", error)
-    return NextResponse.json(errorResponse("INTERNAL_ERROR", "An error occurred during login"), { status: 500 })
+    return NextResponse.json(errorResponse("INTERNAL_ERROR", "An error occurred during login"), { 
+      status: 500,
+      headers: corsHeaders(origin),
+    })
   }
 }
