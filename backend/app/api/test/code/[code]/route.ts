@@ -40,20 +40,3 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ code
     })
   }
 }
-        total_questions: test.total_questions,
-        questions: sanitizedQuestions,
-        test_code: test.test_code,
-      }),
-    )
-  } catch (error: any) {
-    console.error("Get test by code error:", error)
-
-    if (error.message === "UNAUTHORIZED" || error.message === "INVALID_TOKEN") {
-      return NextResponse.json(errorResponse("UNAUTHORIZED", "Authentication required"), { status: 401 })
-    }
-
-    return NextResponse.json(errorResponse("INTERNAL_ERROR", "An error occurred while retrieving the test"), {
-      status: 500,
-    })
-  }
-}
